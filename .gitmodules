@@ -1,0 +1,12 @@
+[submodule "3rdparty/googletest"]
+	path = 3rdparty/googletest
+	url = https://github.com/google/googletest.git
+[submodule "3rdparty/easyloggingpp"]
+	path = 3rdparty/easyloggingpp
+	url = https://github.com/zuhd-org/easyloggingpp.git
+[submodule "3rdparty/BwTree"]
+	path = 3rdparty/BwTree
+	url = https://github.com/wangziqi2013/BwTree.git
+[submodule "3rdparty/Simple-Web-Server"]
+	path = 3rdparty/Simple-Web-Server
+	url = https://gitlab.com/eidheim/Simple-Web-Server.git
