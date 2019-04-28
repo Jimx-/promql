@@ -51,9 +51,10 @@ IndexServer::IndexServer() : index_tree(this)
 
             try {
                 SystemTime now = std::chrono::system_clock::now();
-                this->query(query_str, now, now, Duration{1});
+                auto value = this->query(query_str, now, now, Duration{1});
 
-                ss << "{\"status\": \"ok\"}";
+                ss << "{\"status\": \"ok\", \"data\": " << value->to_json()
+                   << "}";
 
                 response->write(ss);
             } catch (const std::runtime_error& e) {
@@ -92,8 +93,9 @@ PostingID IndexServer::add(const std::string& series)
     return index_tree.add_series(labels);
 }
 
-void IndexServer::query(const std::string& query_str, SystemTime start,
-                        SystemTime end, Duration interval)
+std::unique_ptr<ExecValue> IndexServer::query(const std::string& query_str,
+                                              SystemTime start, SystemTime end,
+                                              Duration interval)
 {
     Parser parser(query_str);
     auto root = parser.parse();
@@ -104,37 +106,11 @@ void IndexServer::query(const std::string& query_str, SystemTime start,
     LOG(INFO) << "==============================";
 
     Executor executor(&index_tree, root.get(), start, end, interval);
-    LOG(INFO) << "Dry run:";
-    executor.execute();
+    LOG(INFO) << "Execution:";
+    auto value = executor.execute();
     LOG(INFO) << "==============================";
 
-    /*
-    bool first = true;
-    for (auto&& p : vs->get_matchers()) {
-        std::set<PostingID> postings;
-        index_tree.query_postings(p, postings);
-
-        if (first) {
-            posting_ids = std::move(postings);
-            first = false;
-        } else {
-            auto it1 = posting_ids.begin();
-            auto it2 = postings.begin();
-
-            while ((it1 != posting_ids.end()) && (it2 != postings.end())) {
-                if (*it1 < *it2) {
-                    posting_ids.erase(it1++);
-                } else if (*it2 < *it1) {
-                    ++it2;
-                } else {
-                    ++it1;
-                    ++it2;
-                }
-            }
-            posting_ids.erase(it1, posting_ids.end());
-        }
-    }
-*/
+    return value;
 }
 
 } // namespace promql

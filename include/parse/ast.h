@@ -146,6 +146,8 @@ public:
     Duration get_offset() const { return offset; }
     void set_offset(Duration offset) { this->offset = offset; }
 
+    virtual ValueType type() const { return ValueType::MATRIX; }
+
     virtual void visit(ASTVisitor& visitor) { visitor.visit(this); }
 
 private:

@@ -18,6 +18,7 @@ enable_testing()
 include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
 
 set(SOURCE_FILES
+    src/value.cpp
     src/index/index_server.cpp
     src/index/index_tree.cpp
     src/index/page_cache.cpp
@@ -30,6 +31,7 @@ set(SOURCE_FILES
 set(HEADER_FILES
     include/common.h
     include/labels.h
+    include/value.h
     include/index/index_server.h
     include/index/index_tree.h
     include/index/page_cache.h

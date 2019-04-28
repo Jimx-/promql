@@ -3,6 +3,7 @@
 
 #include "index/index_tree.h"
 #include "index/page_cache.h"
+#include "value.h"
 
 #include "server_http.hpp"
 
@@ -18,7 +19,9 @@ public:
     void start();
 
     PostingID add(const std::string& series);
-    void query(const std::string& query_str, SystemTime start, SystemTime end, Duration interval);
+    std::unique_ptr<ExecValue> query(const std::string& query_str,
+                                     SystemTime start, SystemTime end,
+                                     Duration interval);
 
     PageCache* get_page_cache() { return &page_cache; }
 

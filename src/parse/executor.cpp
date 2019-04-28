@@ -88,6 +88,7 @@ void Executor::visit(NumberLiteralNode* node) {}
 void Executor::visit(VectorSelectorNode* node)
 {
     std::set<PostingID> posting_ids;
+    MatrixValue* mat = new MatrixValue;
 
     resolve_label_matchers(node->get_matchers(), posting_ids);
 
@@ -105,15 +106,26 @@ void Executor::visit(VectorSelectorNode* node)
     for (auto&& p : posting_ids) {
         ss << (first ? "" : ", ") << p;
         first = false;
+
+        MatrixValue::Series series;
+        for (auto&& m : node->get_matchers()) {
+            series.metric.emplace_back(m.name, m.value);
+        }
+        series.values.push_back(ScalarValue{
+            (uint64_t)start_time.time_since_epoch().count(), 100.0});
+
+        mat->add_series(std::move(series));
     }
     ss << "], at " << start_time.time_since_epoch().count();
 
     LOG(INFO) << ss.str();
+    push_value(mat);
 }
 
 void Executor::visit(MatrixSelectorNode* node)
 {
     std::set<PostingID> posting_ids;
+    MatrixValue* mat = new MatrixValue;
     auto offset = node->get_offset();
     auto maxt = start_time - offset;
     auto mint = maxt - node->get_range();
@@ -134,11 +146,21 @@ void Executor::visit(MatrixSelectorNode* node)
     for (auto&& p : posting_ids) {
         ss << (first ? "" : ", ") << p;
         first = false;
+
+        MatrixValue::Series series;
+        for (auto&& m : node->get_matchers()) {
+            series.metric.emplace_back(m.name, m.value);
+        }
+        series.values.push_back(ScalarValue{
+            (uint64_t)start_time.time_since_epoch().count(), 100.0});
+
+        mat->add_series(std::move(series));
     }
     ss << "], from " << mint.time_since_epoch().count() << " to "
        << maxt.time_since_epoch().count();
 
     LOG(INFO) << ss.str();
+    push_value(mat);
 }
 
 void Executor::visit(SubqueryNode* node) {}
