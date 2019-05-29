@@ -1,5 +1,5 @@
 #include "index/index_server.h"
-#include "index/page_cache.h"
+#include "bptree/mem_page_cache.h"
 #include "parse/executor.h"
 #include "parse/parser.h"
 #include "parse/printer.h"
@@ -10,7 +10,8 @@
 
 namespace promql {
 
-IndexServer::IndexServer() : index_tree(this)
+IndexServer::IndexServer()
+    : page_cache(std::make_unique<bptree::MemPageCache>(4096)), index_tree(this)
 {
     server.config.port = 8080;
 

@@ -1,7 +1,7 @@
 #ifndef _INDEX_TREE_H_
 #define _INDEX_TREE_H_
 
-#include "bwtree.h"
+#include "bptree/tree.h"
 #include "common.h"
 #include "labels.h"
 #include "string_key.h"
@@ -47,12 +47,12 @@ private:
     // using KeyType = KeyTypeSelector<KEY_WIDTH>::key_type;
     using KeyType = std::conditional<KEY_WIDTH <= sizeof(uint64_t), uint64_t,
                                      StringKey<KEY_WIDTH>>::type;
-    using BwTree = wangziqi2013::bwtree::BwTree<KeyType, PageID>;
+    using BPTree = bptree::BTree<200, KeyType, PageID>;
 
     IndexServer* server;
     std::atomic<PostingID> next_id;
     std::mutex tree_mutex;
-    std::unique_ptr<BwTree> bwtree;
+    std::unique_ptr<BPTree> btree;
 
     PostingID get_new_id();
 

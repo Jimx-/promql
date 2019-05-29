@@ -1,8 +1,8 @@
 #ifndef _INDEX_SERVER_H_
 #define _INDEX_SERVER_H_
 
+#include "bptree/page_cache.h"
 #include "index/index_tree.h"
-#include "index/page_cache.h"
 #include "value.h"
 
 #include "server_http.hpp"
@@ -23,13 +23,13 @@ public:
                                      SystemTime start, SystemTime end,
                                      Duration interval);
 
-    PageCache* get_page_cache() { return &page_cache; }
+    bptree::AbstractPageCache* get_page_cache() { return page_cache.get(); }
 
 private:
     using HttpServer = SimpleWeb::Server<SimpleWeb::HTTP>;
 
     HttpServer server;
-    PageCache page_cache;
+    std::unique_ptr<bptree::AbstractPageCache> page_cache;
     IndexTree index_tree;
 };
 

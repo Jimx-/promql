@@ -1,6 +1,5 @@
 #include "index/index_tree.h"
 #include "index/index_server.h"
-#include "index/page_cache.h"
 
 #include "easylogging++.h"
 
@@ -35,9 +34,7 @@ void IndexTree::clear_key<StringKey<IndexTree::KEY_WIDTH>>(
 
 IndexTree::IndexTree(IndexServer* server) : next_id(0), server(server)
 {
-    bwtree = std::make_unique<BwTree>(true);
-    bwtree->UpdateThreadLocal(1);
-    bwtree->AssignGCID(0);
+    btree = std::make_unique<BPTree>(server->get_page_cache());
 }
 
 void IndexTree::query_postings(const LabelMatcher& matcher,
@@ -95,8 +92,8 @@ void IndexTree::query_postings(const LabelMatcher& matcher,
         break;
     }
 
-    auto it = bwtree->Begin(start_key);
-    while (!it.IsEnd()) {
+    auto it = btree->begin(start_key);
+    while (it != btree->end()) {
         switch (op) {
         case MatchOp::NEQ:
             if (it->first >= end_key) {
@@ -129,7 +126,7 @@ void IndexTree::query_postings(const LabelMatcher& matcher,
         }
 
         auto page_id = it->second;
-        auto page = server->get_page_cache()->get_page(page_id);
+        auto page = server->get_page_cache()->fetch_page(page_id);
         uint64_t* p = (uint64_t*)page->lock();
         uint64_t* lim = (uint64_t*)((uint8_t*)p + page->get_size());
         size_t start_index = 0;
@@ -147,6 +144,7 @@ void IndexTree::query_postings(const LabelMatcher& matcher,
             p++;
         }
         page->unlock();
+        server->get_page_cache()->unpin_page(page, true);
 
         if (op == MatchOp::EQL) {
             break;
@@ -180,26 +178,28 @@ void IndexTree::insert_label(const Label& label, PostingID pid)
 void IndexTree::insert_posting_id(const KeyType& key, PostingID pid)
 {
     std::vector<PageID> page_ids;
-    bwtree->GetValue(key, page_ids);
+    btree->get_value(key, page_ids);
 
     if (page_ids.empty()) {
         /* create page */
-        auto page = server->get_page_cache()->create_page();
+        auto page = server->get_page_cache()->new_page();
         auto buf = page->lock();
         memset(buf, 0, page->get_size());
         page->unlock();
-        bwtree->Insert(key, page->get_id());
+        server->get_page_cache()->unpin_page(page, true);
+        btree->insert(key, page->get_id());
         page_ids.push_back(page->get_id());
     }
 
     /* update pages */
     for (auto&& p : page_ids) {
-        auto page = server->get_page_cache()->get_page(p);
+        auto page = server->get_page_cache()->fetch_page(p);
         assert(page != nullptr);
 
         uint64_t* buf = (uint64_t*)page->lock();
         buf[pid >> 6] |= (uint64_t)1 << (pid & 0x3f);
         page->unlock();
+        server->get_page_cache()->unpin_page(page, true);
     }
 }
 
