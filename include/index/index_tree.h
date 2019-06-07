@@ -3,6 +3,8 @@
 
 #include "bptree/tree.h"
 #include "common.h"
+#include "common/tsid.h"
+#include "index/series_manager.h"
 #include "labels.h"
 #include "string_key.h"
 
@@ -11,6 +13,7 @@
 #include <mutex>
 #include <set>
 #include <type_traits>
+#include <unordered_set>
 #include <vector>
 
 namespace promql {
@@ -35,9 +38,10 @@ class IndexTree {
 public:
     IndexTree(IndexServer* server);
 
-    PostingID add_series(const std::vector<Label>& labels);
-    void query_postings(const LabelMatcher& matcher,
-                        std::set<PostingID>& posting_ids);
+    tsdb::common::TSID add_series(const std::vector<Label>& labels);
+    void resolve_label_matchers(const std::vector<LabelMatcher>& matcher,
+                                std::unordered_set<tsdb::common::TSID>& tsids);
+    bool get_labels(const tsdb::common::TSID& tsid, std::vector<Label>& labels);
 
 private:
     static const size_t NAME_BYTES = 4;
@@ -47,9 +51,10 @@ private:
     // using KeyType = KeyTypeSelector<KEY_WIDTH>::key_type;
     using KeyType = std::conditional<KEY_WIDTH <= sizeof(uint64_t), uint64_t,
                                      StringKey<KEY_WIDTH>>::type;
-    using BPTree = bptree::BTree<200, KeyType, PageID>;
+    using BPTree = bptree::BTree<200, KeyType, bptree::PageID>;
 
     IndexServer* server;
+    SeriesManager series_manager;
     std::atomic<PostingID> next_id;
     std::mutex tree_mutex;
     std::unique_ptr<BPTree> btree;
@@ -58,6 +63,9 @@ private:
 
     void insert_label(const Label& label, PostingID pid);
     void insert_posting_id(const KeyType& key, PostingID pid);
+
+    void query_postings(const LabelMatcher& matcher,
+                        std::set<PostingID>& posting_ids);
 
     KeyType make_key(const std::string& name, const std::string& value);
 

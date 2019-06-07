@@ -30,11 +30,27 @@ public:
     double get_value() const { return v; }
 
     virtual ValueType type() const { return ValueType::SCALAR; }
-    virtual std::string to_json() const { return ""; }
+    virtual std::string to_json() const;
 
 private:
     uint64_t t;
     double v;
+};
+
+class VectorValue : public ExecValue {
+public:
+    struct Sample {
+        std::vector<Label> metric;
+        ScalarValue value;
+        Sample() : value(0, 0) {}
+    };
+
+    void add_sample(Sample&& s) { samples.push_back(std::move(s)); }
+    virtual ValueType type() const { return ValueType::VECTOR; }
+    virtual std::string to_json() const;
+
+private:
+    std::vector<Sample> samples;
 };
 
 class MatrixValue : public ExecValue {

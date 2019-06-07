@@ -95,6 +95,12 @@ void IndexTree::query_postings(const LabelMatcher& matcher,
     auto it = btree->begin(start_key);
     while (it != btree->end()) {
         switch (op) {
+        case MatchOp::EQL:
+            if (it->first != start_key) {
+                /* no match */
+                goto out;
+            }
+            break;
         case MatchOp::NEQ:
             if (it->first >= end_key) {
                 goto out;
@@ -156,9 +162,62 @@ out:
     return;
 }
 
+void IndexTree::resolve_label_matchers(
+    const std::vector<LabelMatcher>& matchers,
+    std::unordered_set<tsdb::common::TSID>& tsids)
+{
+    bool first = true;
+    std::set<PostingID> posting_ids;
+    for (auto&& p : matchers) {
+        std::set<PostingID> postings;
+        query_postings(p, postings);
+
+        if (postings.empty()) {
+            tsids.clear();
+            return;
+        }
+
+        if (first) {
+            posting_ids = std::move(postings);
+            first = false;
+        } else {
+            auto it1 = posting_ids.begin();
+            auto it2 = postings.begin();
+
+            while ((it1 != posting_ids.end()) && (it2 != postings.end())) {
+                if (*it1 < *it2) {
+                    posting_ids.erase(it1++);
+                } else if (*it2 < *it1) {
+                    ++it2;
+                } else {
+                    ++it1;
+                    ++it2;
+                }
+            }
+            posting_ids.erase(it1, posting_ids.end());
+        }
+    }
+
+    for (auto&& p : posting_ids) {
+        auto* entry = series_manager.get(p);
+        tsids.insert(entry->tsid);
+    }
+}
+
+bool IndexTree::get_labels(const tsdb::common::TSID& tsid,
+                           std::vector<Label>& labels)
+{
+    auto* entry = series_manager.get_tsid(tsid);
+    if (!entry) return false;
+    labels.clear();
+    std::copy(entry->labels.begin(), entry->labels.end(),
+              std::back_inserter(labels));
+    return true;
+}
+
 PostingID IndexTree::get_new_id() { return next_id++; }
 
-PostingID IndexTree::add_series(const std::vector<Label>& labels)
+tsdb::common::TSID IndexTree::add_series(const std::vector<Label>& labels)
 {
     auto pid = get_new_id();
 
@@ -166,7 +225,8 @@ PostingID IndexTree::add_series(const std::vector<Label>& labels)
         insert_label(label, pid);
     }
 
-    return pid;
+    auto* entry = series_manager.add(pid, labels);
+    return entry->tsid;
 }
 
 void IndexTree::insert_label(const Label& label, PostingID pid)
@@ -177,7 +237,7 @@ void IndexTree::insert_label(const Label& label, PostingID pid)
 
 void IndexTree::insert_posting_id(const KeyType& key, PostingID pid)
 {
-    std::vector<PageID> page_ids;
+    std::vector<bptree::PageID> page_ids;
     btree->get_value(key, page_ids);
 
     if (page_ids.empty()) {

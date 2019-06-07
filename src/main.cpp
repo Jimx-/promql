@@ -1,4 +1,4 @@
-#include "index/index_server.h"
+#include "web/http_server.h"
 
 #include <easylogging++.h>
 
@@ -6,8 +6,7 @@ INITIALIZE_EASYLOGGINGPP
 
 int main()
 {
-    promql::IndexServer server;
-
+    promql::HttpServer server(tmpnam(nullptr));
     server.start();
 
     return 0;

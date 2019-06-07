@@ -10,73 +10,13 @@
 
 namespace promql {
 
-IndexServer::IndexServer()
-    : page_cache(std::make_unique<bptree::MemPageCache>(4096)), index_tree(this)
-{
-    server.config.port = 8080;
+IndexServer::IndexServer(const std::string& dir)
+    : page_cache(std::make_unique<bptree::MemPageCache>(4096)),
+      index_tree(this), db(dir + "/db")
+{}
 
-    server.resource["^/add$"]["POST"] =
-        [this](std::shared_ptr<HttpServer::Response> response,
-               std::shared_ptr<HttpServer::Request> request) {
-            auto content = request->content.string();
-            std::stringstream ss;
-
-            try {
-                auto pid = this->add(content);
-
-                LOG(INFO) << "inserted " << content << " => " << pid;
-                ss << "{\"status\": \"ok\", \"id\": " << pid << "}";
-                response->write(ss);
-            } catch (const std::runtime_error& e) {
-                ss << "{\"status\": \"error\", \"message\": \"" << e.what()
-                   << "\"}";
-                auto resp = ss.str();
-                *response << "HTTP/1.1 400 Bad Request\r\nContent-Length: "
-                          << resp.length() << "\r\n\r\n"
-                          << resp;
-            }
-        };
-
-    server.resource["^/query$"]["GET"] =
-        [this](std::shared_ptr<HttpServer::Response> response,
-               std::shared_ptr<HttpServer::Request> request) {
-            std::stringstream ss;
-
-            std::string query_str;
-            auto query_fields = request->parse_query_string();
-            for (auto& field : query_fields) {
-                if (field.first == "query") {
-                    query_str = field.second;
-                }
-            }
-
-            try {
-                SystemTime now = std::chrono::system_clock::now();
-                auto value = this->query(query_str, now, now, Duration{1});
-
-                ss << "{\"status\": \"ok\", \"data\": " << value->to_json()
-                   << "}";
-
-                response->write(ss);
-            } catch (const std::runtime_error& e) {
-                ss << "{\"status\": \"error\", \"message\": \"" << e.what()
-                   << "\"}";
-                auto resp = ss.str();
-                *response << "HTTP/1.1 400 Bad Request\r\nContent-Length: "
-                          << resp.length() << "\r\n\r\n"
-                          << resp;
-            }
-        };
-}
-
-void IndexServer::start()
-{
-    LOG(INFO) << "Starting HTTP server...";
-
-    server.start();
-}
-
-PostingID IndexServer::add(const std::string& series)
+void IndexServer::insert(const std::string& series, SystemTime timestamp,
+                         double value)
 {
     Parser parser(series);
     auto root = parser.parse();
@@ -87,11 +27,33 @@ PostingID IndexServer::add(const std::string& series)
     }
 
     std::vector<Label> labels;
+    std::vector<LabelMatcher> matchers;
     for (auto&& p : vs->get_matchers()) {
         labels.emplace_back(p.name, p.value);
+        matchers.push_back(p);
     }
 
-    return index_tree.add_series(labels);
+    std::unordered_set<tsdb::common::TSID> tsids;
+    index_tree.resolve_label_matchers(matchers, tsids);
+
+    if (tsids.size() > 1) {
+        throw std::runtime_error("series is not unique");
+    }
+
+    if (tsids.empty()) {
+        auto tsid = index_tree.add_series(labels);
+        tsids.insert(tsid);
+    }
+
+    auto appender = db.appender();
+    for (auto&& p : tsids) {
+        appender->add(
+            p,
+            std::chrono::duration_cast<Duration>(timestamp.time_since_epoch())
+                .count(),
+            value);
+    }
+    appender->commit();
 }
 
 std::unique_ptr<ExecValue> IndexServer::query(const std::string& query_str,
@@ -106,10 +68,8 @@ std::unique_ptr<ExecValue> IndexServer::query(const std::string& query_str,
     root->visit(printer);
     LOG(INFO) << "==============================";
 
-    Executor executor(&index_tree, root.get(), start, end, interval);
-    LOG(INFO) << "Execution:";
+    Executor executor(&index_tree, &db, root.get(), start, end, interval);
     auto value = executor.execute();
-    LOG(INFO) << "==============================";
 
     return value;
 }

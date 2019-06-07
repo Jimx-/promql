@@ -1,0 +1,75 @@
+<html>
+  <head>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.2/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/randomcolor/0.5.4/randomColor.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.css">
+  </head>
+
+  <body>
+    <canvas id="myChart" width="1000" height="800"></canvas>
+
+    <input id="queryStr" type="text" size="50"/>
+    <input type="button" onclick="query()" value="Query"/>
+
+    <script type="text/javascript">
+     function get_dataset(vec) {
+       return {
+         label: vec.metric.__name__ + "{" + Object.entries(vec.metric).map(entry => (entry[0] == "__name__") ? "" : (entry[0] + ": \"" + entry[1] + "\"")).filter(label => label != "").join(', ') + "}",
+         data: vec.values.map(tv => ({x: new Date(1000*tv[0]), y: parseFloat(tv[1])})),
+         borderColor: randomColor(),
+         fill: false
+       }
+     }
+
+     var chart = null;
+
+     function query()
+     {
+       var ctx = document.getElementById('myChart').getContext('2d');
+       var queryStr = document.getElementById("queryStr").value;
+       axios.get('/query', {
+         params: {
+           query: queryStr
+         }
+       }).then(function (response) {
+         var result = response.data.data.result;
+         var datasets = result.map(get_dataset);
+
+         if (chart == null) {
+           chart = new Chart(ctx, {
+             type: 'line',
+             data: {
+               datasets: datasets
+             },
+             options: {
+               responsive: false,
+               scales: {
+                 xAxes: [{
+                   type: 'time',
+                   time: {
+                     displayFormats: {
+                       quarter: 'MMM YYYY'
+                     }
+                   },
+                   ticks: {
+                     source: 'auto'
+                   }
+                 }]
+               }
+             }
+           });
+         } else {
+           chart.data.datasets = datasets;
+           chart.update();
+         }
+         console.log(datasets);
+       }).catch(function (error) {
+         console.log(error);
+       });
+     }
+    </script>
+
+  </body>
+</html>

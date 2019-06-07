@@ -1,6 +1,7 @@
 #ifndef _EXECUTOR_H_
 #define _EXECUTOR_H_
 
+#include "db/DB.hpp"
 #include "index/index_tree.h"
 #include "parse/ast.h"
 #include "value.h"
@@ -12,8 +13,8 @@ namespace promql {
 
 class Executor : public ASTVisitor {
 public:
-    Executor(IndexTree* index, ASTNode* root, SystemTime start, SystemTime end,
-             Duration interval);
+    Executor(IndexTree* index, tsdb::db::DB* db, ASTNode* root,
+             SystemTime start, SystemTime end, Duration interval);
 
     std::unique_ptr<ExecValue> execute();
 
@@ -27,6 +28,7 @@ public:
 
 private:
     IndexTree* index;
+    tsdb::db::DB* db;
     ASTNode* root;
     SystemTime start_time, end_time;
     Duration interval;
@@ -34,9 +36,6 @@ private:
 
     void push_value(ExecValue* val);
     std::unique_ptr<ExecValue> pop_value();
-
-    void resolve_label_matchers(const std::vector<LabelMatcher>& matchers,
-                                std::set<PostingID>& posting_ids);
 };
 
 } // namespace promql

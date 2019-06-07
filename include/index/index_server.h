@@ -2,10 +2,10 @@
 #define _INDEX_SERVER_H_
 
 #include "bptree/page_cache.h"
+#include "db/DB.hpp"
 #include "index/index_tree.h"
+#include "index/series_manager.h"
 #include "value.h"
-
-#include "server_http.hpp"
 
 #include <memory>
 #include <unordered_map>
@@ -14,11 +14,9 @@ namespace promql {
 
 class IndexServer {
 public:
-    IndexServer();
+    IndexServer(const std::string& dir);
 
-    void start();
-
-    PostingID add(const std::string& series);
+    void insert(const std::string& series, SystemTime timestamp, double value);
     std::unique_ptr<ExecValue> query(const std::string& query_str,
                                      SystemTime start, SystemTime end,
                                      Duration interval);
@@ -26,11 +24,11 @@ public:
     bptree::AbstractPageCache* get_page_cache() { return page_cache.get(); }
 
 private:
-    using HttpServer = SimpleWeb::Server<SimpleWeb::HTTP>;
-
-    HttpServer server;
     std::unique_ptr<bptree::AbstractPageCache> page_cache;
     IndexTree index_tree;
+    tsdb::db::DB db;
+
+    PostingID create_series(const std::vector<Label>& labels);
 };
 
 } // namespace promql

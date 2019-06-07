@@ -7,10 +7,9 @@
 namespace promql {
 
 typedef uint64_t PostingID;
-typedef uint64_t PageID;
 
-using SystemTime = std::chrono::time_point<std::chrono::system_clock>;
 using Duration = std::chrono::milliseconds;
+using SystemTime = std::chrono::time_point<std::chrono::system_clock>;
 
 } // namespace promql
 
