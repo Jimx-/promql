@@ -43,11 +43,16 @@ public:
         std::vector<Label> metric;
         ScalarValue value;
         Sample() : value(0, 0) {}
+        Sample(const std::vector<Label>& m, const ScalarValue& v)
+            : metric(m), value(v)
+        {}
     };
 
     void add_sample(Sample&& s) { samples.push_back(std::move(s)); }
     virtual ValueType type() const { return ValueType::VECTOR; }
     virtual std::string to_json() const;
+
+    const std::vector<Sample> get_samples() const { return samples; }
 
 private:
     std::vector<Sample> samples;
@@ -58,11 +63,18 @@ public:
     struct Series {
         std::vector<Label> metric;
         std::vector<ScalarValue> values;
+
+        Series() {}
+        Series(const std::vector<Label>& m, const std::vector<ScalarValue>& vs)
+            : metric(m), values(vs)
+        {}
     };
 
     void add_series(Series&& s) { series.push_back(std::move(s)); }
     virtual ValueType type() const { return ValueType::MATRIX; }
     virtual std::string to_json() const;
+
+    const std::vector<Series>& get_series() const { return series; }
 
 private:
     std::vector<Series> series;

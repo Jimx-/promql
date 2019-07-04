@@ -18,8 +18,7 @@ std::string VectorValue::to_json() const
 {
     std::stringstream ss;
     bool first_series = true;
-    ss << "{";
-    ss << R"("resultType": "vector", "result": [)";
+    ss << "[";
 
     for (auto&& s : samples) {
         ss << (first_series ? "" : ", ") << R"({"metric": {)";
@@ -34,7 +33,7 @@ std::string VectorValue::to_json() const
 
         first_series = false;
     }
-    ss << "]}";
+    ss << "]";
 
     return ss.str();
 }
@@ -43,8 +42,7 @@ std::string MatrixValue::to_json() const
 {
     std::stringstream ss;
     bool first_series = true;
-    ss << "{";
-    ss << R"("resultType": "matrix", "result": [)";
+    ss << "[";
 
     for (auto&& s : series) {
         ss << (first_series ? "" : ", ") << R"({"metric": {)";
@@ -65,7 +63,7 @@ std::string MatrixValue::to_json() const
 
         first_series = false;
     }
-    ss << "]}";
+    ss << "]";
 
     return ss.str();
 }

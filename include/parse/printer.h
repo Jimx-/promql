@@ -11,6 +11,7 @@ public:
     virtual void visit(BinaryNode* node);
     virtual void visit(StringLiteralNode* node);
     virtual void visit(NumberLiteralNode* node);
+    virtual void visit(FuncCallNode* node);
     virtual void visit(VectorSelectorNode* node);
     virtual void visit(MatrixSelectorNode* node);
     virtual void visit(SubqueryNode* node);

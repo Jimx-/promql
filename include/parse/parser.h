@@ -47,6 +47,8 @@ private:
 
     std::unique_ptr<ASTNode> vector_selector(const std::string& name);
     void label_matchers(std::vector<LabelMatcher>& matchers);
+
+    std::unique_ptr<ASTNode> function_call(const std::string& name);
 };
 
 } // namespace promql

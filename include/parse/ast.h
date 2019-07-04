@@ -2,6 +2,7 @@
 #define _AST_H_
 
 #include "common.h"
+#include "functions.h"
 #include "labels.h"
 #include "parse/token.h"
 #include "value.h"
@@ -26,6 +27,7 @@ class UnaryNode;
 class BinaryNode;
 class StringLiteralNode;
 class NumberLiteralNode;
+class FuncCallNode;
 class VectorSelectorNode;
 class MatrixSelectorNode;
 class SubqueryNode;
@@ -36,6 +38,7 @@ public:
     virtual void visit(BinaryNode* node) = 0;
     virtual void visit(StringLiteralNode* node) = 0;
     virtual void visit(NumberLiteralNode* node) = 0;
+    virtual void visit(FuncCallNode* node) = 0;
     virtual void visit(VectorSelectorNode* node) = 0;
     virtual void visit(MatrixSelectorNode* node) = 0;
     virtual void visit(SubqueryNode* node) = 0;
@@ -106,6 +109,22 @@ public:
 
 private:
     double value;
+};
+
+class FuncCallNode : public ASTNode {
+public:
+    const ExecFunction* get_func() const { return func; }
+    void set_func(const ExecFunction* f) { func = f; }
+    const std::vector<PASTNode>& get_args() const { return args; }
+    void add_arg(PASTNode&& arg) { args.push_back(std::move(arg)); }
+
+    virtual ValueType type() const { return func->return_type; }
+
+    virtual void visit(ASTVisitor& visitor) { visitor.visit(this); }
+
+private:
+    const ExecFunction* func;
+    std::vector<PASTNode> args;
 };
 
 class VectorSelectorNode : public ASTNode {

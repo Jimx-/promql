@@ -21,6 +21,9 @@ public:
                                      SystemTime start, SystemTime end,
                                      Duration interval);
 
+    void label_values(const std::string& label_name,
+                      std::unordered_set<std::string>& values);
+
     bptree::AbstractPageCache* get_page_cache() { return page_cache.get(); }
 
 private:

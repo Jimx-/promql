@@ -30,6 +30,7 @@ class TypeChecker : public ASTVisitor {
 
     virtual void visit(StringLiteralNode* node) {}
     virtual void visit(NumberLiteralNode* node) {}
+    virtual void visit(FuncCallNode* node) {}
     virtual void visit(VectorSelectorNode* node) {}
     virtual void visit(MatrixSelectorNode* node) {}
     virtual void visit(SubqueryNode* node)
@@ -235,6 +236,7 @@ std::unique_ptr<ASTNode> Parser::atom()
         match(Token::IDENTIFIER);
         if (cur_tok == Token::LEFT_PAREN) {
             /* function call */
+            t = function_call(name);
         } else {
             t = vector_selector(name);
         }
@@ -365,6 +367,37 @@ void Parser::label_matchers(std::vector<LabelMatcher>& matchers)
     }
 
     match(Token::RIGHT_BRACE);
+}
+
+std::unique_ptr<ASTNode> Parser::function_call(const std::string& name)
+{
+    const auto* func = ExecFunction::get(name);
+    auto node = std::make_unique<FuncCallNode>();
+
+    if (!func) {
+        throw ParseError("undefined function: " + name);
+    }
+
+    node->set_func(func);
+    match(Token::LEFT_PAREN);
+
+    if (cur_tok == Token::RIGHT_PAREN) {
+        match(Token::RIGHT_PAREN);
+        return node;
+    }
+
+    auto arg = expression();
+    node->add_arg(std::move(arg));
+
+    while (cur_tok == Token::COMMA) {
+        match(cur_tok);
+
+        arg = expression();
+        node->add_arg(std::move(arg));
+    }
+
+    match(Token::RIGHT_PAREN);
+    return node;
 }
 
 Duration Parser::parse_duration(const std::string& dur)

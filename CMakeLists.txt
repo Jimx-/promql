@@ -31,6 +31,8 @@ include_directories(
     3rdparty/easyloggingpp/src
     3rdparty/bptree/include
     3rdparty/Simple-Web-Server
+    3rdparty/inja/single_include
+    3rdparty/inja/third_party/include
     tsdb/
     ${LIBUUID_INCLUDE_DIRS}
 )
@@ -46,6 +48,7 @@ set(SOURCE_FILES
     src/index/series_manager.cpp
     src/parse/ast.cpp
     src/parse/executor.cpp
+    src/parse/functions.cpp
     src/parse/lexer.cpp
     src/parse/parser.cpp
     src/parse/printer.cpp
@@ -60,6 +63,7 @@ set(HEADER_FILES
     include/index/series_manager.h
     include/parse/ast.h
     include/parse/executor.h
+    include/parse/functions.h
     include/parse/lexer.h
     include/parse/parser.h
     include/parse/printer.h

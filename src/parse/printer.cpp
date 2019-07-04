@@ -36,6 +36,22 @@ void ASTPrinter::visit(NumberLiteralNode* node)
               << " }" << std::endl;
 }
 
+void ASTPrinter::visit(FuncCallNode* node)
+{
+    std::cout << padding << "FuncCallNode {" << std::endl;
+    std::cout << padding << "  func = \"" << node->get_func()->name << "\""
+              << std::endl;
+    const auto& args = node->get_args();
+    if (!args.empty()) {
+        std::cout << padding << "  args = [" << std::endl;
+        for (auto&& p : args) {
+            enter(p.get());
+        }
+        std::cout << padding << "  ]" << std::endl;
+    }
+    std::cout << padding << "}" << std::endl;
+}
+
 void ASTPrinter::visit(VectorSelectorNode* node)
 {
     std::cout << padding << "VectorSelectorNode {" << std::endl;

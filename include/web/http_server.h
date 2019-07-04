@@ -21,6 +21,9 @@ private:
 
     IndexServer index_server;
     InternalHttpServer server;
+
+    std::string render_template(const std::string& name);
+    std::string get_file(const std::string& filename);
 };
 
 } // namespace promql

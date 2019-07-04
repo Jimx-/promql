@@ -74,4 +74,24 @@ std::unique_ptr<ExecValue> IndexServer::query(const std::string& query_str,
     return value;
 }
 
+void IndexServer::label_values(const std::string& label_name,
+                               std::unordered_set<std::string>& values)
+{
+    std::unordered_set<tsdb::common::TSID> tsids;
+    std::vector<Label> labels;
+    index_tree.resolve_label_matchers({{MatchOp::NEQ, label_name, ""}}, tsids);
+
+    for (auto&& tsid : tsids) {
+        labels.clear();
+        index_tree.get_labels(tsid, labels);
+
+        for (auto&& p : labels) {
+            if (p.name == label_name) {
+                values.insert(p.value);
+                break;
+            }
+        }
+    }
+}
+
 } // namespace promql
