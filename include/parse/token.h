@@ -217,6 +217,22 @@ static MatchOp tok2mop(Token tok)
     return MatchOp::ERROR;
 }
 
+static bool is_comparison_op(Token op)
+{
+    switch (op) {
+    case Token::EQL:
+    case Token::NEQ:
+    case Token::LTE:
+    case Token::LSS:
+    case Token::GTE:
+    case Token::GTR:
+    case Token::EQL_REGEX:
+    case Token::NEQ_REGEX:
+        return true;
+    }
+    return false;
+}
+
 } // namespace promql
 
 #endif

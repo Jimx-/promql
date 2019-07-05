@@ -13,6 +13,7 @@ namespace promql {
 
 struct EvalContext {
     uint64_t ts;
+    std::unique_ptr<VectorValue> outvec;
 };
 
 class Executor : public ASTVisitor {

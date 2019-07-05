@@ -2,6 +2,7 @@
 #define _LABELS_H_
 
 #include <string>
+#include <vector>
 
 namespace promql {
 
@@ -53,6 +54,15 @@ static std::string mop2str(MatchOp op)
         break;
     }
     return "ERROR";
+}
+
+static std::string lset2str(const std::vector<Label>& lset)
+{
+    std::string str = "";
+    for (auto&& l : lset) {
+        str += l.name + ":" + l.value + "|";
+    }
+    return str;
 }
 
 } // namespace promql

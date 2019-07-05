@@ -53,6 +53,7 @@ public:
     virtual std::string to_json() const;
 
     const std::vector<Sample> get_samples() const { return samples; }
+    void clear() { samples.clear(); }
 
 private:
     std::vector<Sample> samples;
