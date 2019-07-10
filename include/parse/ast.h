@@ -28,6 +28,7 @@ class BinaryNode;
 class StringLiteralNode;
 class NumberLiteralNode;
 class FuncCallNode;
+class AggregationNode;
 class VectorSelectorNode;
 class MatrixSelectorNode;
 class SubqueryNode;
@@ -39,6 +40,7 @@ public:
     virtual void visit(StringLiteralNode* node) = 0;
     virtual void visit(NumberLiteralNode* node) = 0;
     virtual void visit(FuncCallNode* node) = 0;
+    virtual void visit(AggregationNode* node) = 0;
     virtual void visit(VectorSelectorNode* node) = 0;
     virtual void visit(MatrixSelectorNode* node) = 0;
     virtual void visit(SubqueryNode* node) = 0;
@@ -69,6 +71,8 @@ public:
     void set_rhs(PASTNode&& rhs) { this->rhs = std::move(rhs); }
     Token get_op() const { return this->op; }
     void set_op(Token op) { this->op = op; }
+    bool is_return_bool() const { return return_bool; }
+    void set_return_bool(bool rb) { return_bool = rb; }
 
     virtual ValueType type() const
     {
@@ -83,6 +87,7 @@ public:
 private:
     PASTNode lhs, rhs;
     Token op;
+    bool return_bool;
 };
 
 class StringLiteralNode : public ASTNode {
@@ -125,6 +130,32 @@ public:
 private:
     const ExecFunction* func;
     std::vector<PASTNode> args;
+};
+
+class AggregationNode : public ASTNode {
+public:
+    AggregationNode() : expr(nullptr), param(nullptr), without(false) {}
+
+    Token get_op() const { return this->op; }
+    void set_op(Token op) { this->op = op; }
+    ASTNode* get_expr() const { return expr.get(); }
+    void set_expr(PASTNode&& expr) { this->expr = std::move(expr); }
+    ASTNode* get_param() const { return param.get(); }
+    void set_param(PASTNode&& param) { this->param = std::move(param); }
+    const std::vector<std::string>& get_grouping() const { return grouping; }
+    void add_grouping(const std::string& gr) { grouping.push_back(gr); }
+    void set_without(bool w) { without = w; }
+    bool is_without() const { return without; }
+
+    virtual ValueType type() const { return ValueType::VECTOR; }
+
+    virtual void visit(ASTVisitor& visitor) { visitor.visit(this); }
+
+private:
+    PASTNode expr, param;
+    Token op;
+    std::vector<std::string> grouping;
+    bool without;
 };
 
 class VectorSelectorNode : public ASTNode {

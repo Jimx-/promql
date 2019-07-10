@@ -11,6 +11,11 @@
 
 namespace promql {
 
+class ExecutionError : public std::runtime_error {
+public:
+    ExecutionError(const std::string& message) : std::runtime_error(message) {}
+};
+
 struct EvalContext {
     uint64_t ts;
     std::unique_ptr<VectorValue> outvec;
@@ -28,6 +33,7 @@ public:
     virtual void visit(StringLiteralNode* node);
     virtual void visit(NumberLiteralNode* node);
     virtual void visit(FuncCallNode* node);
+    virtual void visit(AggregationNode* node);
     virtual void visit(VectorSelectorNode* node);
     virtual void visit(MatrixSelectorNode* node);
     virtual void visit(SubqueryNode* node);
@@ -48,6 +54,10 @@ private:
 
     std::unique_ptr<MatrixValue> range_eval(EvalFunc&& func,
                                             const std::vector<ASTNode*>& exprs);
+
+    std::unique_ptr<VectorValue>
+    aggregation(Token op, const std::vector<std::string>& grouping,
+                bool without, double param, VectorValue* vec, EvalContext& ctx);
 };
 
 } // namespace promql

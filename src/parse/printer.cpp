@@ -16,7 +16,8 @@ void ASTPrinter::visit(UnaryNode* node)
 void ASTPrinter::visit(BinaryNode* node)
 {
     std::cout << padding << "BinaryNode {" << std::endl;
-    std::cout << padding << "  op = " << tok2str(node->get_op()) << std::endl;
+    std::cout << padding << "  op = " << tok2str(node->get_op())
+              << (node->is_return_bool() ? "(bool)" : "") << std::endl;
     std::cout << padding << "  left = " << std::endl;
     enter(node->get_lhs());
     std::cout << padding << "  right = " << std::endl;
@@ -49,6 +50,31 @@ void ASTPrinter::visit(FuncCallNode* node)
         }
         std::cout << padding << "  ]" << std::endl;
     }
+    std::cout << padding << "}" << std::endl;
+}
+
+void ASTPrinter::visit(AggregationNode* node)
+{
+    std::cout << padding << "AggregationNode {" << std::endl;
+    std::cout << padding << "  op = " << tok2str(node->get_op()) << std::endl;
+    std::cout << padding << "  expr = " << std::endl;
+    enter(node->get_expr());
+    auto param = node->get_param();
+    if (param) {
+        std::cout << padding << "  param = " << std::endl;
+        enter(param);
+    }
+    const auto& grouping = node->get_grouping();
+    if (!grouping.empty()) {
+        std::cout << padding << "  grouping = [" << std::endl;
+        for (auto&& p : grouping) {
+            std::cout << padding << "    " << p << "," << std::endl;
+        }
+        std::cout << padding << "  ]" << std::endl;
+    }
+    std::cout << padding
+              << "  without = " << (node->is_without() ? "true" : "false")
+              << std::endl;
     std::cout << padding << "}" << std::endl;
 }
 

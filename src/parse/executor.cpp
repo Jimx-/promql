@@ -10,7 +10,7 @@
 
 namespace promql {
 
-static double vec_elt_binop(Token op, double lhs, double rhs, bool& keep)
+static inline double vec_elt_binop(Token op, double lhs, double rhs, bool& keep)
 {
     keep = true;
     switch (op) {
@@ -22,6 +22,28 @@ static double vec_elt_binop(Token op, double lhs, double rhs, bool& keep)
         return lhs * rhs;
     case Token::DIV:
         return lhs / rhs;
+    case Token::POW:
+        return ::pow(lhs, rhs);
+    case Token::MOD:
+        return ::fmod(lhs, rhs);
+    case Token::EQL:
+        keep = lhs == rhs;
+        return lhs;
+    case Token::NEQ:
+        keep = lhs != rhs;
+        return lhs;
+    case Token::GTR:
+        keep = lhs > rhs;
+        return lhs;
+    case Token::LSS:
+        keep = lhs < rhs;
+        return lhs;
+    case Token::GTE:
+        keep = lhs >= rhs;
+        return lhs;
+    case Token::LTE:
+        keep = lhs <= rhs;
+        return lhs;
     default:
         return 0.0;
     }
@@ -198,8 +220,8 @@ void Executor::visit(BinaryNode* node)
                 VectorValue* rhs = static_cast<VectorValue*>(args[1]);
                 ScalarValue rv = rhs->get_samples()[0].value;
 
-                return vec_scalar_binop(node->get_op(), lhs, &rv, false, false,
-                                        ctx);
+                return vec_scalar_binop(node->get_op(), lhs, &rv, false,
+                                        node->is_return_bool(), ctx);
             },
             {node->get_lhs(), node->get_rhs()}));
     } else if (rhs_type == ValueType::VECTOR && lhs_type == ValueType::SCALAR) {
@@ -209,8 +231,8 @@ void Executor::visit(BinaryNode* node)
                 ScalarValue lv = lhs->get_samples()[0].value;
                 VectorValue* rhs = static_cast<VectorValue*>(args[1]);
 
-                return vec_scalar_binop(node->get_op(), rhs, &lv, true, false,
-                                        ctx);
+                return vec_scalar_binop(node->get_op(), rhs, &lv, true,
+                                        node->is_return_bool(), ctx);
             },
             {node->get_lhs(), node->get_rhs()}));
     }
@@ -240,6 +262,30 @@ void Executor::visit(FuncCallNode* node)
     push_value(range_eval(
         [node](const std::vector<ExecValue*>& args, EvalContext& ctx) {
             return node->get_func()->pfunc(args, ctx.ts);
+        },
+        args));
+}
+
+void Executor::visit(AggregationNode* node)
+{
+    std::vector<ASTNode*> args;
+    args.push_back(node->get_expr());
+    if (node->get_param()) {
+        args.push_back(node->get_param());
+    }
+
+    push_value(range_eval(
+        [node, this](const std::vector<ExecValue*>& args, EvalContext& ctx) {
+            VectorValue* vec = static_cast<VectorValue*>(args[0]);
+            double param = 0;
+            if (node->get_param()) {
+                param = static_cast<VectorValue*>(args[1])
+                            ->get_samples()[0]
+                            .value.get_value();
+            }
+
+            return this->aggregation(node->get_op(), node->get_grouping(),
+                                     node->is_without(), param, vec, ctx);
         },
         args));
 }
@@ -320,5 +366,214 @@ void Executor::visit(MatrixSelectorNode* node)
 }
 
 void Executor::visit(SubqueryNode* node) {}
+
+static bool sample_lt(const VectorValue::Sample& lhs,
+                      const VectorValue::Sample& rhs)
+{
+    return lhs.value.get_value() < rhs.value.get_value();
+}
+
+static bool sample_gt(const VectorValue::Sample& lhs,
+                      const VectorValue::Sample& rhs)
+{
+    return lhs.value.get_value() > rhs.value.get_value();
+}
+
+std::unique_ptr<VectorValue>
+Executor::aggregation(Token op, const std::vector<std::string>& grouping,
+                      bool without, double param, VectorValue* vec,
+                      EvalContext& ctx)
+{
+    struct AggregationGroup {
+        std::vector<Label> labels;
+        double value, mean;
+        int group_count;
+        std::vector<VectorValue::Sample> heap;
+    };
+
+    std::unordered_map<std::string, AggregationGroup> groups;
+    std::unordered_set<std::string> grouping_set(grouping.begin(),
+                                                 grouping.end());
+    int k = (int)param;
+    double q = param;
+
+    for (auto&& s : vec->get_samples()) {
+        const auto& metric = s.metric;
+        std::vector<Label> labels;
+
+        for (auto&& l : metric) {
+            bool found = grouping_set.find(l.name) != grouping_set.end();
+
+            if (without == found) {
+                continue;
+            }
+
+            if (without && l.name == METRIC_NAME) continue;
+
+            labels.push_back(l);
+        }
+
+        std::sort(labels.begin(), labels.end());
+        auto lstr = lset2str(labels);
+
+        auto it = groups.find(lstr);
+        if (it == groups.end()) {
+            AggregationGroup group;
+            group.group_count = 1;
+            group.labels = std::move(labels);
+            group.value = s.value.get_value();
+            group.mean = s.value.get_value();
+
+            switch (op) {
+            case Token::STDVAR:
+            case Token::STDDEV:
+                group.value = 0;
+                break;
+            case Token::TOP_K:
+            case Token::BOTTOM_K:
+            case Token::QUANTILE:
+                group.heap.push_back(std::move(s));
+                break;
+            default:
+                break;
+            }
+
+            groups[lstr] = std::move(group);
+            continue;
+        }
+
+        auto& group = it->second;
+        switch (op) {
+        case Token::SUM:
+            group.value += s.value.get_value();
+            break;
+        case Token::AVG:
+            group.group_count++;
+            group.mean +=
+                (s.value.get_value() - group.mean) / (double)group.group_count;
+            break;
+        case Token::MAX:
+            if (group.value < s.value.get_value()) {
+                group.value = s.value.get_value();
+            }
+            break;
+        case Token::MIN:
+            if (group.value > s.value.get_value()) {
+                group.value = s.value.get_value();
+            }
+            break;
+        case Token::COUNT:
+        case Token::COUNT_VALUES:
+            group.group_count++;
+            break;
+        case Token::STDVAR:
+        case Token::STDDEV: {
+            group.group_count++;
+            double delta = (s.value.get_value() - group.mean);
+            group.mean += delta / (double)group.group_count;
+            group.value += delta * (s.value.get_value() - group.mean);
+            break;
+        }
+        case Token::TOP_K:
+        case Token::BOTTOM_K: {
+            auto cmp = sample_gt;
+            if (op == Token::BOTTOM_K) {
+                cmp = sample_lt;
+            }
+
+            if (group.heap.size() < k || cmp(s, group.heap.front())) {
+                if (group.heap.size() == k) {
+                    group.heap.front() = s;
+                    std::make_heap(group.heap.begin(), group.heap.end(), cmp);
+                } else {
+                    group.heap.push_back(s);
+                    std::push_heap(group.heap.begin(), group.heap.end(), cmp);
+                }
+            }
+            break;
+        }
+
+        case Token::QUANTILE:
+            group.heap.push_back(s);
+            std::push_heap(group.heap.begin(), group.heap.end(), sample_gt);
+            break;
+
+        default:
+            throw ExecutionError("expected aggregation operator, got " +
+                                 tok2str(op));
+        }
+    }
+
+    for (auto&& p : groups) {
+        auto& aggr = p.second;
+
+        switch (op) {
+        case Token::AVG:
+            aggr.value = aggr.mean;
+            break;
+        case Token::COUNT:
+        case Token::COUNT_VALUES:
+            aggr.value = aggr.group_count;
+            break;
+        case Token::STDDEV:
+            aggr.value = ::sqrt(aggr.value / (double)aggr.group_count);
+            break;
+        case Token::STDVAR:
+            aggr.value = aggr.value / (double)aggr.group_count;
+            break;
+
+        case Token::TOP_K:
+        case Token::BOTTOM_K:
+            for (auto&& p : aggr.heap) {
+                ctx.outvec->add_sample(std::move(p));
+            }
+            continue;
+
+        case Token::QUANTILE: {
+            if (aggr.heap.empty()) {
+                aggr.value = 0;
+                break;
+            }
+
+            double rank = q * (aggr.heap.size() - 1);
+            size_t lower = (rank < 0) ? 0 : (size_t)rank;
+            size_t upper = lower + 1;
+            if (upper >= aggr.heap.size()) upper = aggr.heap.size() - 1;
+
+            auto cmp = sample_gt;
+            if (op == Token::BOTTOM_K) {
+                cmp = sample_lt;
+            }
+
+            double weight = rank - lower;
+            size_t i = 0;
+            double value = 0;
+            while (!aggr.heap.empty()) {
+                std::pop_heap(aggr.heap.begin(), aggr.heap.end(), cmp);
+
+                if (i == lower) {
+                    value += aggr.heap.back().value.get_value() * (1 - weight);
+                }
+                if (i == upper) {
+                    value += aggr.heap.back().value.get_value() * weight;
+                    break;
+                }
+                aggr.heap.pop_back();
+                i++;
+            }
+            aggr.value = value;
+            break;
+        }
+
+        default:
+            break;
+        }
+
+        ctx.outvec->add_sample(
+            {std::move(aggr.labels), ScalarValue(ctx.ts, aggr.value)});
+    }
+
+    return std::move(ctx.outvec);
+}
 
 } // namespace promql

@@ -14,6 +14,11 @@ struct Label {
     Label(const std::string& name, const std::string& value)
         : name(name), value(value)
     {}
+
+    bool operator<(const Label& rhs)
+    {
+        return name < rhs.name || (name == rhs.name && value < rhs.value);
+    }
 };
 
 enum class MatchOp {

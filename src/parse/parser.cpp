@@ -31,6 +31,7 @@ class TypeChecker : public ASTVisitor {
     virtual void visit(StringLiteralNode* node) {}
     virtual void visit(NumberLiteralNode* node) {}
     virtual void visit(FuncCallNode* node) {}
+    virtual void visit(AggregationNode* node) {}
     virtual void visit(VectorSelectorNode* node) {}
     virtual void visit(MatrixSelectorNode* node) {}
     virtual void visit(SubqueryNode* node)
@@ -112,11 +113,19 @@ std::unique_ptr<ASTNode> Parser::comparison_expression()
     if ((cur_tok == Token::LSS) || (cur_tok == Token::GTR) ||
         (cur_tok == Token::LTE) || (cur_tok == Token::GTE) ||
         (cur_tok == Token::EQL) || (cur_tok == Token::NEQ)) {
+        bool return_bool = false;
         p = std::make_unique<BinaryNode>();
         p->set_lhs(std::move(t));
         p->set_op(cur_tok);
         match(cur_tok);
+
+        if (cur_tok == Token::BOOL) {
+            return_bool = true;
+            match(Token::BOOL);
+        }
+
         p->set_rhs(arith_expression());
+        p->set_return_bool(return_bool);
         t = std::move(p);
     }
     return t;
@@ -250,6 +259,21 @@ std::unique_ptr<ASTNode> Parser::atom()
         t = vector_selector(name);
     }
 
+    case Token::SUM:
+        /* fall-through */
+    case Token::MIN:
+    case Token::MAX:
+    case Token::AVG:
+    case Token::STDDEV:
+    case Token::STDVAR:
+    case Token::COUNT:
+    case Token::COUNT_VALUES:
+    case Token::BOTTOM_K:
+    case Token::TOP_K:
+    case Token::QUANTILE:
+        t = aggregation();
+        break;
+
     default:
         break;
     }
@@ -332,6 +356,27 @@ std::unique_ptr<ASTNode> Parser::vector_selector(const std::string& name)
     return vs;
 }
 
+void Parser::labels(std::vector<std::string>& labels)
+{
+    match(Token::LEFT_PAREN);
+
+    if (cur_tok != Token::RIGHT_BRACE) {
+        std::string label = lex.get_last_word();
+        match(Token::IDENTIFIER);
+        labels.push_back(label);
+
+        while (cur_tok == Token::COMMA) {
+            match(cur_tok);
+
+            label = lex.get_last_word();
+            match(Token::IDENTIFIER);
+            labels.push_back(label);
+        }
+    }
+
+    match(Token::RIGHT_PAREN);
+}
+
 void Parser::label_matchers(std::vector<LabelMatcher>& matchers)
 {
     match(Token::LEFT_BRACE);
@@ -397,6 +442,68 @@ std::unique_ptr<ASTNode> Parser::function_call(const std::string& name)
     }
 
     match(Token::RIGHT_PAREN);
+    return node;
+}
+
+std::unique_ptr<ASTNode> Parser::aggregation()
+{
+    auto node = std::make_unique<AggregationNode>();
+    bool has_param = false;
+
+    switch (cur_tok) {
+    case Token::COUNT_VALUES:
+    case Token::BOTTOM_K:
+    case Token::TOP_K:
+    case Token::QUANTILE:
+        has_param = true;
+    case Token::SUM:
+    case Token::MIN:
+    case Token::MAX:
+    case Token::AVG:
+    case Token::STDDEV:
+    case Token::STDVAR:
+    case Token::COUNT:
+        break;
+    default:
+        throw ParseError("unexpected aggregation operator");
+    }
+
+    node->set_op(cur_tok);
+    match(cur_tok);
+
+    std::vector<std::string> grouping;
+    bool without = false;
+    bool missing_modifiers = true;
+
+    if (cur_tok == Token::BY || cur_tok == Token::WITHOUT) {
+        without = cur_tok == Token::WITHOUT;
+        match(cur_tok);
+        labels(grouping);
+        missing_modifiers = false;
+    }
+
+    match(Token::LEFT_PAREN);
+    if (has_param) {
+        node->set_param(expression());
+        match(Token::COMMA);
+    }
+
+    node->set_expr(expression());
+    match(Token::RIGHT_PAREN);
+
+    if (missing_modifiers) {
+        if (cur_tok == Token::BY || cur_tok == Token::WITHOUT) {
+            without = cur_tok == Token::WITHOUT;
+            match(cur_tok);
+            labels(grouping);
+        }
+    }
+
+    node->set_without(without);
+    for (auto&& p : grouping) {
+        node->add_grouping(p);
+    }
+
     return node;
 }
 

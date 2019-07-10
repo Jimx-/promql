@@ -46,9 +46,11 @@ private:
     std::unique_ptr<ASTNode> atom();
 
     std::unique_ptr<ASTNode> vector_selector(const std::string& name);
+    void labels(std::vector<std::string>& labels);
     void label_matchers(std::vector<LabelMatcher>& matchers);
 
     std::unique_ptr<ASTNode> function_call(const std::string& name);
+    std::unique_ptr<ASTNode> aggregation();
 };
 
 } // namespace promql
