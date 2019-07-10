@@ -18,6 +18,7 @@ public:
 
 struct EvalContext {
     uint64_t ts;
+    uint64_t mat_start, mat_end; /* time range of matrix arg in function call */
     std::unique_ptr<VectorValue> outvec;
 };
 

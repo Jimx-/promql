@@ -76,6 +76,7 @@ public:
     virtual std::string to_json() const;
 
     const std::vector<Series>& get_series() const { return series; }
+    void clear() { series.clear(); }
 
 private:
     std::vector<Series> series;

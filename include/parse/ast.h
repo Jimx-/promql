@@ -16,6 +16,9 @@ class ASTVisitor;
 
 class ASTNode {
 public:
+    virtual Duration get_range() const { return Duration{0}; }
+    virtual Duration get_offset() const { return Duration{0}; }
+
     virtual ValueType type() const { return ValueType::NONE; }
 
     virtual void visit(ASTVisitor& visitor) = 0;
@@ -191,9 +194,9 @@ public:
     {
         matchers.emplace_back(op, name, value);
     }
-    Duration get_range() const { return range; }
+    virtual Duration get_range() const { return range; }
     void set_range(Duration range) { this->range = range; }
-    Duration get_offset() const { return offset; }
+    virtual Duration get_offset() const { return offset; }
     void set_offset(Duration offset) { this->offset = offset; }
 
     virtual ValueType type() const { return ValueType::MATRIX; }
@@ -211,11 +214,11 @@ class SubqueryNode : public ASTNode {
 public:
     ASTNode* get_expr() const { return expr.get(); }
     void set_expr(PASTNode&& expr) { this->expr = std::move(expr); }
-    Duration get_range() const { return range; }
+    virtual Duration get_range() const { return range; }
     void set_range(Duration range) { this->range = range; }
     Duration get_step() const { return step; }
     void set_step(Duration step) { this->step = step; }
-    Duration get_offset() const { return offset; }
+    virtual Duration get_offset() const { return offset; }
     void set_offset(Duration offset) { this->offset = offset; }
 
     virtual void visit(ASTVisitor& visitor) { visitor.visit(this); }

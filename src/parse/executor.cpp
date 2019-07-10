@@ -254,16 +254,119 @@ void Executor::visit(NumberLiteralNode* node)
 
 void Executor::visit(FuncCallNode* node)
 {
-    std::vector<ASTNode*> args;
-    for (auto&& p : node->get_args()) {
-        args.push_back(p.get());
+    bool has_matrix_arg = false;
+    size_t matrix_arg_idx = 0;
+
+    for (auto it = node->get_func()->arg_types.begin();
+         it != node->get_func()->arg_types.end(); it++) {
+        if (*it == ValueType::MATRIX) {
+            has_matrix_arg = true;
+            matrix_arg_idx = it - node->get_func()->arg_types.begin();
+            break;
+        }
     }
 
-    push_value(range_eval(
-        [node](const std::vector<ExecValue*>& args, EvalContext& ctx) {
-            return node->get_func()->pfunc(args, ctx.ts);
-        },
-        args));
+    if (!has_matrix_arg) {
+        /* if there is no matrix arg then handle the call with range_eval */
+        std::vector<ASTNode*> args;
+        for (auto&& p : node->get_args()) {
+            args.push_back(p.get());
+        }
+
+        push_value(range_eval(
+            [node](const std::vector<ExecValue*>& args, EvalContext& ctx) {
+                return node->get_func()->pfunc(args, ctx);
+            },
+            args));
+    }
+
+    std::vector<std::unique_ptr<MatrixValue>> mats;
+    std::vector<std::unique_ptr<VectorValue>> vec_args;
+    std::unique_ptr<MatrixValue> mat_arg;
+    std::vector<ExecValue*> args;
+    auto out_mat = std::make_unique<MatrixValue>();
+
+    size_t arg_idx = 0;
+    auto saved_sts = start_timestamp;
+    Duration mat_range, mat_offset;
+    for (auto&& arg : node->get_args()) {
+        if (arg_idx == matrix_arg_idx) {
+            /* reset the time range to make sure we get all the points */
+            mat_range = arg->get_range();
+            mat_offset = arg->get_offset();
+            start_timestamp -= mat_range.count() + mat_offset.count();
+        }
+
+        arg->visit(*this);
+        assert(!value_stack.empty());
+        mats.push_back(pop_value());
+        start_timestamp = saved_sts;
+
+        if (arg_idx == matrix_arg_idx) {
+            mat_arg = std::make_unique<MatrixValue>();
+            vec_args.push_back(nullptr);
+            args.push_back(mat_arg.get());
+        } else {
+            vec_args.emplace_back();
+            args.push_back(vec_args.back().get());
+        }
+
+        arg_idx++;
+    }
+
+    auto matrix_arg = mats[matrix_arg_idx].get();
+    EvalContext ctx;
+    ctx.outvec = std::make_unique<VectorValue>();
+    for (auto&& s : matrix_arg->get_series()) {
+        MatrixValue::Series ss(s.metric, {});
+        int step = 0;
+        auto lower = s.values.cbegin(), upper = s.values.cbegin();
+
+        for (auto ts = start_timestamp; ts <= end_timestamp;
+             ts += interval.count(), step++) {
+            for (size_t i = 0; i < mats.size(); i++) {
+                /* prepare non-matrix args */
+                if (i == matrix_arg_idx) {
+                    continue;
+                }
+
+                vec_args[i]->clear();
+                auto& vec_series = mats[i]->get_series()[0];
+                vec_args[i]->add_sample(
+                    {vec_series.metric, vec_series.values[step]});
+            }
+
+            /* get data point slice */
+            auto maxt = ts - mat_offset.count();
+            auto mint = maxt - mat_range.count();
+            while (upper != s.values.end() && upper->get_time() <= maxt)
+                upper++;
+            while (lower < upper && lower->get_time() < mint)
+                lower++;
+
+            mat_arg->clear();
+            mat_arg->add_series({s.metric, {lower, upper}});
+
+            ctx.ts = ts;
+            ctx.mat_start = mint;
+            ctx.mat_end = maxt;
+            auto result = node->get_func()->pfunc(args, ctx);
+
+            if (!result->get_samples().empty()) {
+                ss.values.push_back(
+                    {ts, result->get_samples()[0].value.get_value()});
+            }
+
+            result->clear();
+            ctx.outvec = std::move(result);
+        }
+
+        if (!ss.values.empty()) {
+            out_mat->add_series(std::move(ss));
+        }
+    }
+
+    push_value(std::move(out_mat));
 }
 
 void Executor::visit(AggregationNode* node)
