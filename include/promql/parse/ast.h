@@ -1,11 +1,11 @@
-#ifndef _AST_H_
-#define _AST_H_
+#ifndef _PROMQL_AST_H_
+#define _PROMQL_AST_H_
 
-#include "common.h"
-#include "functions.h"
-#include "labels.h"
-#include "parse/token.h"
-#include "value.h"
+#include "promql/common.h"
+#include "promql/labels.h"
+#include "promql/parse/functions.h"
+#include "promql/parse/token.h"
+#include "promql/value.h"
 
 #include <memory>
 #include <vector>

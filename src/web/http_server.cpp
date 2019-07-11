@@ -1,7 +1,8 @@
-#include "web/http_server.h"
-#include "common.h"
+#include "promql/web/http_server.h"
 #include "inja/inja.hpp"
-#include "parse/parser.h"
+#include "promql/common.h"
+#include "promql/parse/executor.h"
+#include "promql/parse/parser.h"
 
 #include "easylogging++.h"
 
@@ -10,7 +11,7 @@
 
 namespace promql {
 
-HttpServer::HttpServer(const std::string& dir) : index_server(dir)
+HttpServer::HttpServer(Storage* storage) : storage(storage)
 {
     server.config.port = 8080;
 
@@ -45,7 +46,24 @@ HttpServer::HttpServer(const std::string& dir) : index_server(dir)
             try {
                 SystemTime now = std::chrono::system_clock::now();
                 double value = ::strtod(value_str.c_str(), nullptr);
-                this->index_server.insert(series, now, value);
+
+                Parser parser(series);
+                auto root = parser.parse();
+                VectorSelectorNode* vs =
+                    dynamic_cast<VectorSelectorNode*>(root.get());
+
+                if (!vs) {
+                    throw std::runtime_error("series is not a vector selector");
+                }
+
+                std::vector<Label> labels;
+                for (auto&& p : vs->get_matchers()) {
+                    labels.emplace_back(p.name, p.value);
+                }
+
+                auto app = this->storage->appender();
+                app->add(labels, now.time_since_epoch().count(), value);
+                app->commit();
 
                 ss << "{\"status\": \"ok\"}";
                 response->write(ss);
@@ -86,8 +104,7 @@ HttpServer::HttpServer(const std::string& dir) : index_server(dir)
                         std::chrono::milliseconds((uint64_t)(time_ts * 1000)));
                 }
 
-                auto value =
-                    this->index_server.query(query_str, qt, qt, Duration{1});
+                auto value = this->query(query_str, qt, qt, Duration{1});
 
                 ss << "{\"status\": \"success\", \"data\": {\"resultType\": \""
                    << valtype2str(value->type())
@@ -157,8 +174,7 @@ HttpServer::HttpServer(const std::string& dir) : index_server(dir)
                     std::chrono::milliseconds((uint64_t)(start_ts * 1000)));
                 SystemTime end_tp(
                     std::chrono::milliseconds((uint64_t)(end_ts * 1000)));
-                auto value = this->index_server.query(query_str, start_tp,
-                                                      end_tp, step_dur);
+                auto value = this->query(query_str, start_tp, end_tp, step_dur);
 
                 ss << "{\"status\": \"success\", \"data\": {\"resultType\": \""
                    << valtype2str(value->type())
@@ -186,7 +202,7 @@ HttpServer::HttpServer(const std::string& dir) : index_server(dir)
             std::stringstream ss;
 
             std::unordered_set<std::string> values;
-            this->index_server.label_values(label_name, values);
+            this->storage->label_values(label_name, values);
 
             ss << "{\"status\": \"success\", \"data\": [";
             bool first = true;
@@ -253,6 +269,19 @@ std::string HttpServer::get_file(const std::string& filename)
     }
 
     return "";
+}
+
+std::unique_ptr<ExecValue> HttpServer::query(const std::string& query_str,
+                                             SystemTime start, SystemTime end,
+                                             Duration interval)
+{
+    Parser parser(query_str);
+    auto root = parser.parse();
+
+    Executor executor(storage, root.get(), start, end, interval);
+    auto value = executor.execute();
+
+    return value;
 }
 
 } // namespace promql

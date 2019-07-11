@@ -1,7 +1,7 @@
-#ifndef _TOKEN_H_
-#define _TOKEN_H_
+#ifndef _PROMQL_TOKEN_H_
+#define _PROMQL_TOKEN_H_
 
-#include "labels.h"
+#include "promql/labels.h"
 
 #include <string>
 

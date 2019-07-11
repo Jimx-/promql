@@ -1,4 +1,4 @@
-#include "parse/lexer.h"
+#include "promql/parse/lexer.h"
 
 #include <ctype.h>
 

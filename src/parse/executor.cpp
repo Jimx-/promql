@@ -1,12 +1,14 @@
-#include "parse/executor.h"
-#include "labels.h"
-#include "parse/token.h"
+#include "promql/parse/executor.h"
+#include "promql/labels.h"
+#include "promql/parse/token.h"
 
 #include <easylogging++.h>
 
 #include <cassert>
+#include <cmath>
 #include <sstream>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace promql {
 
@@ -85,9 +87,9 @@ static std::unique_ptr<VectorValue> vec_scalar_binop(Token op, VectorValue* lhs,
     return std::move(ctx.outvec);
 }
 
-Executor::Executor(IndexTree* index, tsdb::db::DB* db, ASTNode* root,
-                   SystemTime start, SystemTime end, Duration interval)
-    : index(index), db(db), root(root),
+Executor::Executor(Queryable* queryable, ASTNode* root, SystemTime start,
+                   SystemTime end, Duration interval)
+    : queryable(queryable), root(root),
       start_timestamp(
           std::chrono::duration_cast<Duration>(start.time_since_epoch())
               .count()),
@@ -395,22 +397,18 @@ void Executor::visit(AggregationNode* node)
 
 void Executor::visit(VectorSelectorNode* node)
 {
-    std::unordered_set<tsdb::common::TSID> tsids;
     auto mat = std::make_unique<MatrixValue>();
 
-    index->resolve_label_matchers(node->get_matchers(), tsids);
-    auto q = db->querier(start_timestamp, end_timestamp);
+    auto q = queryable->querier(start_timestamp, end_timestamp);
 
-    auto series_it = q.first->select(tsids);
+    auto series_it = q->select(node->get_matchers());
 
     while (series_it && series_it->next()) {
+        MatrixValue::Series series;
+
         auto si = series_it->at();
         std::vector<Label> labels;
-        if (!index->get_labels(si->tsid(), labels)) {
-            continue;
-        }
-
-        MatrixValue::Series series;
+        si->labels(labels);
         for (auto&& l : labels) {
             series.metric.emplace_back(l.name, l.value);
         }
@@ -434,25 +432,21 @@ void Executor::visit(VectorSelectorNode* node)
 
 void Executor::visit(MatrixSelectorNode* node)
 {
-    std::unordered_set<tsdb::common::TSID> tsids;
     auto mat = std::make_unique<MatrixValue>();
     auto offset = node->get_offset();
     auto maxt = end_timestamp - offset.count();
     auto mint = maxt - node->get_range().count();
 
-    index->resolve_label_matchers(node->get_matchers(), tsids);
-    auto q = db->querier(start_timestamp, end_timestamp);
+    auto q = queryable->querier(start_timestamp, end_timestamp);
 
-    auto series_it = q.first->select(tsids);
+    auto series_it = q->select(node->get_matchers());
 
     while (series_it && series_it->next()) {
-        auto si = series_it->at();
-        std::vector<Label> labels;
-        if (!index->get_labels(si->tsid(), labels)) {
-            continue;
-        }
-
         MatrixValue::Series series;
+        auto si = series_it->at();
+
+        std::vector<Label> labels;
+        si->labels(labels);
         for (auto&& l : labels) {
             series.metric.emplace_back(l.name, l.value);
         }

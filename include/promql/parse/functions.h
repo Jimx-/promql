@@ -1,8 +1,8 @@
-#ifndef _FUNCTIONS_H_
-#define _FUNCTIONS_H_
+#ifndef _PROMQL_FUNCTIONS_H_
+#define _PROMQL_FUNCTIONS_H_
 
-#include "common.h"
-#include "value.h"
+#include "promql/common.h"
+#include "promql/value.h"
 
 #include <functional>
 #include <memory>

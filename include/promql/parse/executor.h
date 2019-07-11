@@ -1,10 +1,9 @@
-#ifndef _EXECUTOR_H_
-#define _EXECUTOR_H_
+#ifndef _PROMQL_EXECUTOR_H_
+#define _PROMQL_EXECUTOR_H_
 
-#include "db/DB.hpp"
-#include "index/index_tree.h"
-#include "parse/ast.h"
-#include "value.h"
+#include "promql/parse/ast.h"
+#include "promql/storage.h"
+#include "promql/value.h"
 
 #include <set>
 #include <stack>
@@ -24,8 +23,8 @@ struct EvalContext {
 
 class Executor : public ASTVisitor {
 public:
-    Executor(IndexTree* index, tsdb::db::DB* db, ASTNode* root,
-             SystemTime start, SystemTime end, Duration interval);
+    Executor(Queryable* queryable, ASTNode* root, SystemTime start,
+             SystemTime end, Duration interval);
 
     std::unique_ptr<ExecValue> execute();
 
@@ -43,8 +42,7 @@ private:
     using EvalFunc = std::function<std::unique_ptr<VectorValue>(
         const std::vector<ExecValue*>&, EvalContext&)>;
 
-    IndexTree* index;
-    tsdb::db::DB* db;
+    Queryable* queryable;
     ASTNode* root;
     uint64_t start_timestamp, end_timestamp;
     Duration interval;

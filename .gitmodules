@@ -7,9 +7,6 @@
 [submodule "3rdparty/Simple-Web-Server"]
 	path = 3rdparty/Simple-Web-Server
 	url = https://gitlab.com/eidheim/Simple-Web-Server.git
-[submodule "3rdparty/bptree"]
-	path = 3rdparty/bptree
-	url = https://github.com/Jimx-/bptree.git
 [submodule "tsdb"]
 	path = tsdb
 	url = https://github.com/Jimx-/tsdb-fork.git

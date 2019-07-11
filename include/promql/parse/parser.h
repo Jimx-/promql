@@ -1,9 +1,9 @@
-#ifndef _PARSER_H_
-#define _PARSER_H_
+#ifndef _PROMQL_PARSER_H_
+#define _PROMQL_PARSER_H_
 
-#include "common.h"
-#include "parse/ast.h"
-#include "parse/lexer.h"
+#include "promql/common.h"
+#include "promql/parse/ast.h"
+#include "promql/parse/lexer.h"
 
 #include <memory>
 

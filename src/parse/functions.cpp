@@ -1,5 +1,5 @@
-#include "parse/functions.h"
-#include "parse/executor.h"
+#include "promql/parse/functions.h"
+#include "promql/parse/executor.h"
 
 #include <unordered_map>
 

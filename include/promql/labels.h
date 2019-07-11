@@ -1,5 +1,5 @@
-#ifndef _LABELS_H_
-#define _LABELS_H_
+#ifndef _PROMQL_LABELS_H_
+#define _PROMQL_LABELS_H_
 
 #include <string>
 #include <vector>

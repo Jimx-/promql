@@ -1,7 +1,7 @@
-#ifndef _LEXER_H_
-#define _LEXER_H_
+#ifndef _PROMQL_LEXER_H_
+#define _PROMQL_LEXER_H_
 
-#include "parse/token.h"
+#include "promql/parse/token.h"
 
 #include <stdexcept>
 #include <string>

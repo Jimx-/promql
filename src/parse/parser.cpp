@@ -1,4 +1,4 @@
-#include "parse/parser.h"
+#include "promql/parse/parser.h"
 
 namespace promql {
 

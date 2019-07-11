@@ -1,5 +1,5 @@
-#ifndef _COMMON_H_
-#define _COMMON_H_
+#ifndef _PROMQL_COMMON_H_
+#define _PROMQL_COMMON_H_
 
 #include <chrono>
 #include <cstdint>

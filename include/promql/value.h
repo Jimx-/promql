@@ -1,7 +1,7 @@
-#ifndef _VALUE_H_
-#define _VALUE_H_
+#ifndef _PROMQL_VALUE_H_
+#define _PROMQL_VALUE_H_
 
-#include "labels.h"
+#include "promql/labels.h"
 
 #include <string>
 #include <vector>

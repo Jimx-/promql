@@ -1,7 +1,7 @@
-#ifndef _PRINTER_H_
-#define _PRINTER_H_
+#ifndef _PROMQL_PRINTER_H_
+#define _PROMQL_PRINTER_H_
 
-#include "parse/ast.h"
+#include "promql/parse/ast.h"
 
 namespace promql {
 
