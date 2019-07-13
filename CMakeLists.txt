@@ -10,7 +10,6 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${TOPDIR}/cmake")
 
 include_directories(
     ${TOPDIR}/include
-    ${TOPDIR}/3rdparty/easyloggingpp/src
     ${TOPDIR}/3rdparty/Simple-Web-Server
     ${TOPDIR}/3rdparty/inja/single_include
     ${TOPDIR}/3rdparty/inja/third_party/include
@@ -40,9 +39,7 @@ set(HEADER_FILES
     ${TOPDIR}/include/promql/web/http_server.h
 )
 
-set(EXT_SOURCE_FILES 
-    ${TOPDIR}/3rdparty/easyloggingpp/src/easylogging++.cc
-)
+set(EXT_SOURCE_FILES )
 
 add_subdirectory(${TOPDIR}/3rdparty/Simple-Web-Server)
 

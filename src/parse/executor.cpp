@@ -2,8 +2,6 @@
 #include "promql/labels.h"
 #include "promql/parse/token.h"
 
-#include <easylogging++.h>
-
 #include <cassert>
 #include <cmath>
 #include <sstream>
@@ -280,6 +278,8 @@ void Executor::visit(FuncCallNode* node)
                 return node->get_func()->pfunc(args, ctx);
             },
             args));
+
+        return;
     }
 
     std::vector<std::unique_ptr<MatrixValue>> mats;

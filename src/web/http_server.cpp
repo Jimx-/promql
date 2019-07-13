@@ -4,8 +4,6 @@
 #include "promql/parse/executor.h"
 #include "promql/parse/parser.h"
 
-#include "easylogging++.h"
-
 #include <fstream>
 #include <sstream>
 
@@ -62,7 +60,11 @@ HttpServer::HttpServer(Storage* storage) : storage(storage)
                 }
 
                 auto app = this->storage->appender();
-                app->add(labels, now.time_since_epoch().count(), value);
+                app->add(
+                    labels,
+                    std::chrono::duration_cast<Duration>(now.time_since_epoch())
+                        .count(),
+                    value);
                 app->commit();
 
                 ss << "{\"status\": \"ok\"}";
@@ -236,12 +238,7 @@ HttpServer::HttpServer(Storage* storage) : storage(storage)
         };
 }
 
-void HttpServer::start()
-{
-    LOG(INFO) << "Starting HTTP server...";
-
-    server.start();
-}
+void HttpServer::start() { server.start(); }
 
 std::string HttpServer::render_template(const std::string& name)
 {

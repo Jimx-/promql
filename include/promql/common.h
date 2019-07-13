@@ -6,8 +6,6 @@
 
 namespace promql {
 
-typedef uint64_t PostingID;
-
 using Duration = std::chrono::milliseconds;
 using SystemTime = std::chrono::time_point<std::chrono::system_clock>;
 

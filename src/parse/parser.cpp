@@ -135,7 +135,7 @@ std::unique_ptr<ASTNode> Parser::arith_expression()
 {
     auto t = term();
     std::unique_ptr<BinaryNode> p;
-    if ((cur_tok == Token::ADD) || (cur_tok == Token::SUB)) {
+    while ((cur_tok == Token::ADD) || (cur_tok == Token::SUB)) {
         p = std::make_unique<BinaryNode>();
         p->set_lhs(std::move(t));
         p->set_op(cur_tok);
@@ -150,8 +150,8 @@ std::unique_ptr<ASTNode> Parser::term()
 {
     auto t = factor();
     std::unique_ptr<BinaryNode> p;
-    if ((cur_tok == Token::MUL) || (cur_tok == Token::DIV) ||
-        (cur_tok == Token::MOD)) {
+    while ((cur_tok == Token::MUL) || (cur_tok == Token::DIV) ||
+           (cur_tok == Token::MOD)) {
         p = std::make_unique<BinaryNode>();
         p->set_lhs(std::move(t));
         p->set_op(cur_tok);
