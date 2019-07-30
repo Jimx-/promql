@@ -60,6 +60,9 @@ Token Lexer::get_token()
         if (last_char == '=') {
             last_char = read_char();
             return Token::EQL;
+        } else if (last_char == '~') {
+            last_char = read_char();
+            return Token::EQL_REGEX;
         }
         return Token::ASSIGN;
     } else if (last_char == '!') {
@@ -67,6 +70,9 @@ Token Lexer::get_token()
         if (last_char == '=') {
             last_char = read_char();
             return Token::NEQ;
+        } else if (last_char == '~') {
+            last_char = read_char();
+            return Token::NEQ_REGEX;
         }
 
         throw LexError("unexpected character after '!'");

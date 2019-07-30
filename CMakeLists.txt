@@ -16,6 +16,7 @@ include_directories(
 )
 
 set(SOURCE_FILES
+    ${TOPDIR}/src/labels.cpp
     ${TOPDIR}/src/value.cpp
     ${TOPDIR}/src/parse/ast.cpp
     ${TOPDIR}/src/parse/executor.cpp

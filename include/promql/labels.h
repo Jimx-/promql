@@ -29,6 +29,8 @@ enum class MatchOp {
     GTR,
     LTE,
     GTE,
+    EQL_REGEX,
+    NEQ_REGEX,
 };
 
 struct LabelMatcher {
@@ -38,6 +40,8 @@ struct LabelMatcher {
     LabelMatcher(MatchOp op, const std::string& name, const std::string& value)
         : op(op), name(name), value(value)
     {}
+
+    bool match(const Label& label) const;
 };
 
 static std::string mop2str(MatchOp op)

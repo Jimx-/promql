@@ -210,6 +210,10 @@ static MatchOp tok2mop(Token tok)
         return MatchOp::LTE;
     case Token::GTE:
         return MatchOp::GTE;
+    case Token::EQL_REGEX:
+        return MatchOp::EQL_REGEX;
+    case Token::NEQ_REGEX:
+        return MatchOp::NEQ_REGEX;
     default:
         break;
     }
