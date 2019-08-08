@@ -11,7 +11,7 @@ namespace promql {
 struct Label {
     std::string name, value;
 
-    Label(const std::string& name, const std::string& value)
+    Label(const std::string& name = "", const std::string& value = "")
         : name(name), value(value)
     {}
 

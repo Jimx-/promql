@@ -9,7 +9,8 @@
 
 namespace promql {
 
-HttpServer::HttpServer(Storage* storage) : storage(storage)
+HttpServer::HttpServer(Storage* storage, int num_workers)
+    : storage(storage), num_workers(num_workers), pool(num_workers)
 {
     server.config.port = 8080;
 
@@ -29,59 +30,64 @@ HttpServer::HttpServer(Storage* storage) : storage(storage)
     server.resource["^/insert$"]["POST"] =
         [this](std::shared_ptr<InternalHttpServer::Response> response,
                std::shared_ptr<InternalHttpServer::Request> request) {
-            std::stringstream ss;
+            pool.push([this, response, request](int id) {
+                std::stringstream ss;
 
-            std::string series, value_str;
-            auto query_fields = request->parse_query_string();
-            for (auto& field : query_fields) {
-                if (field.first == "series") {
-                    series = field.second;
-                } else if (field.first == "value") {
-                    value_str = field.second;
-                }
-            }
-
-            try {
-                SystemTime now = std::chrono::system_clock::now();
-                double value = ::strtod(value_str.c_str(), nullptr);
-
-                Parser parser(series);
-                auto root = parser.parse();
-                VectorSelectorNode* vs =
-                    dynamic_cast<VectorSelectorNode*>(root.get());
-
-                if (!vs) {
-                    throw std::runtime_error("series is not a vector selector");
+                std::string series, value_str;
+                auto query_fields = request->parse_query_string();
+                for (auto& field : query_fields) {
+                    if (field.first == "series") {
+                        series = field.second;
+                    } else if (field.first == "value") {
+                        value_str = field.second;
+                    }
                 }
 
-                std::vector<Label> labels;
-                for (auto&& p : vs->get_matchers()) {
-                    labels.emplace_back(p.name, p.value);
+                try {
+                    SystemTime now = std::chrono::system_clock::now();
+                    double value = ::strtod(value_str.c_str(), nullptr);
+
+                    Parser parser(series);
+                    auto root = parser.parse();
+                    VectorSelectorNode* vs =
+                        dynamic_cast<VectorSelectorNode*>(root.get());
+
+                    if (!vs) {
+                        throw std::runtime_error(
+                            "series is not a vector selector");
+                    }
+
+                    std::vector<Label> labels;
+                    for (auto&& p : vs->get_matchers()) {
+                        labels.emplace_back(p.name, p.value);
+                    }
+
+                    auto app = this->storage->appender();
+                    app->add(labels,
+                             std::chrono::duration_cast<Duration>(
+                                 now.time_since_epoch())
+                                 .count(),
+                             value);
+                    app->commit();
+
+                    ss << "{\"status\": \"ok\"}";
+                    response->write(ss);
+                } catch (const std::runtime_error& e) {
+                    ss << "{\"status\": \"error\", \"message\": \"" << e.what()
+                       << "\"}";
+                    auto resp = ss.str();
+                    *response << "HTTP/1.1 400 Bad Request\r\nContent-Length: "
+                              << resp.length() << "\r\n\r\n"
+                              << resp;
                 }
-
-                auto app = this->storage->appender();
-                app->add(
-                    labels,
-                    std::chrono::duration_cast<Duration>(now.time_since_epoch())
-                        .count(),
-                    value);
-                app->commit();
-
-                ss << "{\"status\": \"ok\"}";
-                response->write(ss);
-            } catch (const std::runtime_error& e) {
-                ss << "{\"status\": \"error\", \"message\": \"" << e.what()
-                   << "\"}";
-                auto resp = ss.str();
-                *response << "HTTP/1.1 400 Bad Request\r\nContent-Length: "
-                          << resp.length() << "\r\n\r\n"
-                          << resp;
-            }
+            });
         };
 
-    server.resource["^/api/v1/query$"]["GET"] =
-        [this](std::shared_ptr<InternalHttpServer::Response> response,
-               std::shared_ptr<InternalHttpServer::Request> request) {
+    server.resource
+        ["^/api/v1/query$"]
+        ["GET"] = [this](std::shared_ptr<InternalHttpServer::Response> response,
+                         std::shared_ptr<InternalHttpServer::Request> request) {
+        pool.push([this, response, request](int id) {
             std::stringstream ss;
 
             std::string query_str, time;
@@ -125,11 +131,14 @@ HttpServer::HttpServer(Storage* storage) : storage(storage)
                           << resp.length() << "\r\n\r\n"
                           << resp;
             }
-        };
+        });
+    };
 
-    server.resource["^/api/v1/query_range$"]["GET"] =
-        [this](std::shared_ptr<InternalHttpServer::Response> response,
-               std::shared_ptr<InternalHttpServer::Request> request) {
+    server.resource
+        ["^/api/v1/query_range$"]
+        ["GET"] = [this](std::shared_ptr<InternalHttpServer::Response> response,
+                         std::shared_ptr<InternalHttpServer::Request> request) {
+        pool.push([this, request, response](int id) {
             std::stringstream ss;
 
             std::string query_str, start, end, step;
@@ -195,7 +204,8 @@ HttpServer::HttpServer(Storage* storage) : storage(storage)
                           << resp.length() << "\r\n\r\n"
                           << resp;
             }
-        };
+        });
+    };
 
     server.resource["^/api/v1/label/([^/]+)/values"]["GET"] =
         [this](std::shared_ptr<InternalHttpServer::Response> response,
@@ -211,6 +221,7 @@ HttpServer::HttpServer(Storage* storage) : storage(storage)
             for (auto&& v : values) {
                 if (!first) ss << ", ";
                 ss << "\"" << v << "\"";
+                first = false;
             }
             ss << "]}";
 

@@ -7,3 +7,6 @@
 [submodule "3rdparty/inja"]
 	path = 3rdparty/inja
 	url = https://github.com/pantor/inja.git
+[submodule "3rdparty/CTPL"]
+	path = 3rdparty/CTPL
+	url = https://github.com/vit-vit/CTPL.git

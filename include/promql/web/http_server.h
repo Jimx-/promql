@@ -6,6 +6,8 @@
 #include "promql/value.h"
 #include "server_http.hpp"
 
+#include "ctpl.h"
+
 #include <memory>
 #include <unordered_map>
 
@@ -13,7 +15,7 @@ namespace promql {
 
 class HttpServer {
 public:
-    HttpServer(Storage* storage);
+    HttpServer(Storage* storage, int num_workers = 1);
 
     void start();
 
@@ -22,6 +24,8 @@ private:
 
     Storage* storage;
     InternalHttpServer server;
+    int num_workers;
+    ctpl::thread_pool pool;
 
     std::string render_template(const std::string& name);
     std::string get_file(const std::string& filename);

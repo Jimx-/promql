@@ -8,11 +8,16 @@ option(PROMQL_BUILD_TESTS "set ON to build library tests" OFF)
 set(TOPDIR ${PROJECT_SOURCE_DIR})
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${TOPDIR}/cmake")
 
-include_directories(
+set(INCLUDE_DIRS
     ${TOPDIR}/include
     ${TOPDIR}/3rdparty/Simple-Web-Server
+    ${TOPDIR}/3rdparty/CTPL
     ${TOPDIR}/3rdparty/inja/single_include
     ${TOPDIR}/3rdparty/inja/third_party/include
+)
+
+include_directories(
+    ${INCLUDE_DIRS}
 )
 
 set(SOURCE_FILES
@@ -52,6 +57,7 @@ set(LIBRARIES
  
 add_library(promql STATIC ${SOURCE_FILES} ${HEADER_FILES} ${EXT_SOURCE_FILES})
 target_link_libraries(promql ${LIBRARIES})
+target_include_directories(promql PUBLIC ${INCLUDE_DIRS})
 install(TARGETS promql DESTINATION lib)
 
 if (PROMQL_BUILD_TESTS)
