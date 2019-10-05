@@ -42,6 +42,8 @@ struct LabelMatcher {
     {}
 
     bool match(const Label& label) const;
+
+    bool match_value(const std::string& value) const;
 };
 
 static std::string mop2str(MatchOp op)
