@@ -1,7 +1,5 @@
 #include "promql/labels.h"
 
-#include <regex>
-
 namespace promql {
 
 bool LabelMatcher::match(const Label& label) const
@@ -32,7 +30,6 @@ bool LabelMatcher::match_value(const std::string& val) const
         regex_match = true;
         /* fall-through */
     case MatchOp::NEQ_REGEX: {
-        std::regex pattern(value);
         return std::regex_match(val, pattern) == regex_match;
     }
     }
