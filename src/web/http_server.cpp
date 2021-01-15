@@ -12,7 +12,7 @@ namespace promql {
 HttpServer::HttpServer(Storage* storage, int num_workers)
     : storage(storage), num_workers(num_workers), pool(num_workers)
 {
-    server.config.port = 8080;
+    server.config.port = 9090;
 
     server.resource["^/graph$"]["GET"] =
         [this](std::shared_ptr<InternalHttpServer::Response> response,

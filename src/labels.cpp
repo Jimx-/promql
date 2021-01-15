@@ -1,10 +1,13 @@
 #include "promql/labels.h"
 
-#include <regex>
-
 namespace promql {
 
 bool LabelMatcher::match(const Label& label) const
+{
+    return label.name == name && match_value(label.value);
+}
+
+bool LabelMatcher::match_value(const std::string& val) const
 {
     bool regex_match = false;
 
@@ -12,24 +15,22 @@ bool LabelMatcher::match(const Label& label) const
     case MatchOp::ERROR:
         return false;
     case MatchOp::EQL:
-        return label.name == name && label.value == value;
+        return val == value;
     case MatchOp::NEQ:
-        return label.name == name && label.value != value;
+        return val != value;
     case MatchOp::LSS:
-        return label.name == name && label.value < value;
+        return val < value;
     case MatchOp::GTR:
-        return label.name == name && label.value > value;
+        return val > value;
     case MatchOp::LTE:
-        return label.name == name && label.value <= value;
+        return val <= value;
     case MatchOp::GTE:
-        return label.name == name && label.value >= value;
+        return val >= value;
     case MatchOp::EQL_REGEX:
         regex_match = true;
         /* fall-through */
     case MatchOp::NEQ_REGEX: {
-        std::regex pattern(value);
-        return name == label.name &&
-               std::regex_match(label.value, pattern) == regex_match;
+        return std::regex_match(val, pattern) == regex_match;
     }
     }
 

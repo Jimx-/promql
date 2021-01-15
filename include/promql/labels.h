@@ -1,6 +1,8 @@
 #ifndef _PROMQL_LABELS_H_
 #define _PROMQL_LABELS_H_
 
+#include <memory>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -36,12 +38,19 @@ enum class MatchOp {
 struct LabelMatcher {
     MatchOp op;
     std::string name, value;
+    std::regex pattern;
 
     LabelMatcher(MatchOp op, const std::string& name, const std::string& value)
         : op(op), name(name), value(value)
-    {}
+    {
+        if (op == MatchOp::EQL_REGEX || op == MatchOp::NEQ_REGEX) {
+            pattern = std::regex(value);
+        }
+    }
 
     bool match(const Label& label) const;
+
+    bool match_value(const std::string& value) const;
 };
 
 static std::string mop2str(MatchOp op)
