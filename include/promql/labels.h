@@ -40,6 +40,8 @@ struct LabelMatcher {
     std::string name, value;
     std::regex pattern;
 
+    LabelMatcher() {}
+
     LabelMatcher(MatchOp op, const std::string& name, const std::string& value)
         : op(op), name(name), value(value)
     {
